@@ -7,6 +7,7 @@ function App() {
   const [novels, setNovels] = useState<Novel[]>(initialNovels)
   const [title, setTitle] = useState('')
   const [author, setAuthor] = useState('')
+  const [episodeDrafts, setEpisodeDrafts] = useState<Record<number, string>>({})
 
   function addNovel() {
     const trimmedTitle = title.trim()
@@ -25,6 +26,36 @@ function App() {
     setTitle('')
     setAuthor('')
   }
+
+  function getEpisodeInput(novel: Novel) {
+    return episodeDrafts[novel.id] ?? String(novel.readEpisode)
+  }
+
+  function isValidEpisode(value: string) {
+    return /^\d+$/.test(value.trim()) && Number.isSafeInteger(Number(value))
+  }
+
+  function updateEpisode(id: number) {
+    const novel = novels.find((novel) => novel.id === id)
+    if (!novel) return
+
+    const input = getEpisodeInput(novel)
+    if (!isValidEpisode(input)) return
+
+    const episode = Number(input)
+
+    setNovels((current) =>
+      current.map((novel) =>
+        novel.id === id ? { ...novel, readEpisode: episode } : novel,
+      ),
+    )
+
+    setEpisodeDrafts((current) => ({
+      ...current,
+      [id]: String(episode),
+    }))
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 p-6 font-sans text-slate-900">
     <h1 className="mb-6 text-2xl font-bold">Web小説の読書管理</h1>
@@ -70,6 +101,34 @@ function App() {
           <h2 className="mb-2 text-lg font-bold">{novel.title}</h2>
           <p className="text-sm text-slate-600">{novel.author}</p>
           <p className="mt-4">{novel.readEpisode}話まで読了</p>
+          <div className="mt-3 flex items-start gap-2">
+          <TextField
+            id={`episode-${novel.id}`}
+            label="読んだ話数"
+            size="small"
+            fullWidth
+            value={getEpisodeInput(novel)}
+            onChange={(event) =>
+              setEpisodeDrafts((current) => ({
+                ...current,
+                [novel.id]: event.target.value,
+              }))
+            }
+            error={!isValidEpisode(getEpisodeInput(novel))}
+            helperText="0以上の整数を入力"
+            slotProps={{ htmlInput: { inputMode: 'numeric' } }}
+          />
+
+          <Button
+            type="button"
+            variant="outlined"
+            disabled={!isValidEpisode(getEpisodeInput(novel))}
+            onClick={() => updateEpisode(novel.id)}
+            sx={{ minHeight: 40 }}
+          >
+            更新
+          </Button>
+        </div>
         </Card>
       ))}
     </div>
