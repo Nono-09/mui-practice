@@ -9,6 +9,9 @@ import MenuItem from '@mui/material/MenuItem'
 import Chip from '@mui/material/Chip'
 import Link from '@mui/material/Link'
 import Rating from '@mui/material/Rating'
+import Tabs from '@mui/material/Tabs'
+import Tab from '@mui/material/Tab'
+import Typography from '@mui/material/Typography'
 
 function App() {
   const [loaded] = useState(loadNovels)
@@ -18,6 +21,7 @@ function App() {
   const [author, setAuthor] = useState('')
   const [url, setUrl] = useState('')
   const [status, setStatus] = useState<ReadingStatus>('未読')
+  const [filter, setFilter] = useState<ReadingStatus | 'すべて'>('すべて')
   const [episodeDrafts, setEpisodeDrafts] = useState<Record<number, string>>({})
 
   useEffect(() => {
@@ -88,10 +92,19 @@ function App() {
     }))
   }
 
+  const filteredNovels = novels.filter(
+    (novel) => filter === 'すべて' || novel.status === filter,
+  )
+
   return (
     <div className="min-h-screen bg-slate-100 p-6 font-sans text-slate-900">
-    <h1 className="mb-6 text-2xl font-bold">Web小説の読書管理</h1>
-
+    <Typography
+      component="h1"
+      variant="h5"
+      sx={{ mb: 3, fontWeight: 700 }}
+    >
+      Web小説の読書管理
+    </Typography>
     {storageError && (
       <p role="alert" className="mb-4 rounded-lg bg-red-100 p-3 text-red-800">
         {storageError}
@@ -163,11 +176,53 @@ function App() {
       登録する
     </Button>
   </form>
+    <Tabs
+      value={filter}
+      onChange={(_, newValue: ReadingStatus | 'すべて') =>
+        setFilter(newValue)
+      }
+      variant="scrollable"
+      scrollButtons="auto"
+      aria-label="読書状態で絞り込み"
+      sx={{ mb: 2 }}
+    >
+      {(['すべて', '未読', '読書中', '読了'] as const).map((value) => (
+        <Tab
+          key={value}
+          id={`filter-tab-${value}`}
+          aria-controls="novel-list-panel"
+          value={value}
+          label={`${value}（${
+            value === 'すべて'
+              ? novels.length
+              : novels.filter((novel) => novel.status === value).length
+          }）`}
+        />
+      ))}
+    </Tabs>
+    <div
+      id="novel-list-panel"
+      role="tabpanel"
+      aria-labelledby={`filter-tab-${filter}`}
+      className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+    >
+      {filteredNovels.length === 0 && (
+        <Typography color="text.secondary" sx={{ gridColumn: '1 / -1', py: 3 }}>
+          {filter === 'すべて'
+            ? '作品はまだ登録されていません。'
+            : `「${filter}」の作品はありません。`}
+        </Typography>
+      )}
 
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {novels.map((novel) => (
+      {filteredNovels.map((novel) => (
         <Card key={novel.id} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-          <h2 className="mb-2 text-lg font-bold">{novel.title}</h2>
+          <Typography
+            component="h2"
+            variant="h6"
+            sx={{ mb: 1, fontWeight: 700 }}
+          >
+            {novel.title}
+          </Typography>
           <p className="text-sm text-slate-600">{novel.author}</p>
           {novel.url && (
             <Link
