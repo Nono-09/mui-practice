@@ -12,6 +12,13 @@ import Rating from '@mui/material/Rating'
 import Tabs from '@mui/material/Tabs'
 import Tab from '@mui/material/Tab'
 import Typography from '@mui/material/Typography'
+import IconButton from '@mui/material/IconButton'
+import Tooltip from '@mui/material/Tooltip'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
+import Snackbar from '@mui/material/Snackbar'
 
 function App() {
   const [loaded] = useState(loadNovels)
@@ -23,6 +30,9 @@ function App() {
   const [status, setStatus] = useState<ReadingStatus>('未読')
   const [filter, setFilter] = useState<ReadingStatus | 'すべて'>('すべて')
   const [episodeDrafts, setEpisodeDrafts] = useState<Record<number, string>>({})
+  const [editingNovel, setEditingNovel] = useState<Novel | null>(null)
+  const [deletingNovel, setDeletingNovel] = useState<Novel | null>(null)
+  const [notice, setNotice] = useState('')
 
   useEffect(() => {
     if (loaded.readError) return
@@ -90,6 +100,50 @@ function App() {
       ...current,
       [id]: String(episode),
     }))
+  }
+
+  function saveNovel() {
+    if (!editingNovel) return
+
+    const nextTitle = editingNovel.title.trim()
+    const nextUrl = editingNovel.url.trim()
+
+    if (!nextTitle) return
+    if (nextUrl && !isValidNovelUrl(nextUrl)) return
+
+    setNovels((current) =>
+      current.map((item) =>
+        item.id === editingNovel.id
+          ? {
+              ...item,
+              title: nextTitle,
+              author: editingNovel.author.trim() || '作者未入力',
+              url: nextUrl,
+              status: editingNovel.status,
+            }
+          : item,
+      ),
+    )
+
+    setEditingNovel(null)
+    setFilter('すべて')
+    setNotice('作品情報を更新しました')
+  }
+
+  function deleteNovel() {
+    if (!deletingNovel) return
+
+    const id = deletingNovel.id
+
+    setNovels((current) => current.filter((item) => item.id !== id))
+    setEpisodeDrafts((current) => {
+      const next = { ...current }
+      delete next[id]
+      return next
+    })
+
+    setDeletingNovel(null)
+    setNotice('作品を一覧から削除しました')
   }
 
   const filteredNovels = novels.filter(
@@ -216,6 +270,25 @@ function App() {
 
       {filteredNovels.map((novel) => (
         <Card key={novel.id} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+          <div className="mb-1 flex justify-end gap-1">
+            <Tooltip title="作品情報を編集">
+              <IconButton
+                aria-label={`${novel.title}を編集`}
+                onClick={() => setEditingNovel({ ...novel })}
+              >
+                <span aria-hidden="true">✎</span>
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="一覧から削除">
+              <IconButton
+                color="error"
+                aria-label={`${novel.title}を削除`}
+                onClick={() => setDeletingNovel(novel)}
+              >
+                <span aria-hidden="true">×</span>
+              </IconButton>
+            </Tooltip>
+          </div>
           <Typography
             component="h2"
             variant="h6"
@@ -302,6 +375,135 @@ function App() {
         </Card>
       ))}
     </div>
+    <Dialog
+      open={editingNovel !== null}
+      onClose={() => setEditingNovel(null)}
+      fullWidth
+      maxWidth="sm"
+      aria-labelledby="edit-novel-title"
+    >
+      <DialogTitle id="edit-novel-title">作品情報を編集</DialogTitle>
+      <DialogContent dividers>
+        {editingNovel && (
+          <div className="flex flex-col gap-4">
+            <TextField
+              label="作品名"
+              required
+              fullWidth
+              value={editingNovel.title}
+              error={!editingNovel.title.trim()}
+              onChange={(event) =>
+                setEditingNovel({
+                  ...editingNovel,
+                  title: event.target.value,
+                })
+              }
+            />
+            <TextField
+              label="作者（任意）"
+              fullWidth
+              value={editingNovel.author}
+              onChange={(event) =>
+                setEditingNovel({
+                  ...editingNovel,
+                  author: event.target.value,
+                })
+              }
+            />
+            <TextField
+              label="作品URL（任意）"
+              fullWidth
+              value={editingNovel.url}
+              error={
+                editingNovel.url.trim() !== '' &&
+                !isValidNovelUrl(editingNovel.url.trim())
+              }
+              helperText="https:// または http:// で始まるURL"
+              onChange={(event) =>
+                setEditingNovel({
+                  ...editingNovel,
+                  url: event.target.value,
+                })
+              }
+            />
+            <FormControl fullWidth>
+              <InputLabel id="edit-status-label">読書状態</InputLabel>
+              <Select<ReadingStatus>
+                labelId="edit-status-label"
+                id="edit-status"
+                label="読書状態"
+                value={editingNovel.status}
+                onChange={(event) =>
+                  setEditingNovel({
+                    ...editingNovel,
+                    status: event.target.value as ReadingStatus,
+                  })
+                }
+              >
+                <MenuItem value="未読">未読</MenuItem>
+                <MenuItem value="読書中">読書中</MenuItem>
+                <MenuItem value="読了">読了</MenuItem>
+              </Select>
+            </FormControl>
+          </div>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setEditingNovel(null)}>
+          キャンセル
+        </Button>
+        <Button
+          variant="contained"
+          onClick={saveNovel}
+          disabled={
+            !editingNovel ||
+            !editingNovel.title.trim() ||
+            (
+              editingNovel.url.trim() !== '' &&
+              !isValidNovelUrl(editingNovel.url.trim())
+            )
+          }
+        >
+          変更を反映
+        </Button>
+      </DialogActions>
+    </Dialog>
+    <Dialog
+      open={deletingNovel !== null}
+      onClose={() => setDeletingNovel(null)}
+      fullWidth
+      maxWidth="xs"
+      aria-labelledby="delete-novel-title"
+      aria-describedby="delete-novel-description"
+    >
+      <DialogTitle id="delete-novel-title">
+        作品を削除しますか？
+      </DialogTitle>
+      <DialogContent>
+        <Typography id="delete-novel-description">
+          「{deletingNovel?.title}」を一覧から削除します。
+          話数と評価も削除されます。
+        </Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button autoFocus onClick={() => setDeletingNovel(null)}>
+          キャンセル
+        </Button>
+        <Button color="error" variant="contained" onClick={deleteNovel}>
+          削除する
+        </Button>
+      </DialogActions>
+    </Dialog>
+
+    <Snackbar
+      open={notice !== ''}
+      autoHideDuration={3000}
+      message={notice}
+      onClose={(_, reason) => {
+        if (reason === 'clickaway') return
+        setNotice('')
+      }}
+    />
   </div>
   )
 }
