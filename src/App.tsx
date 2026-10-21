@@ -2,6 +2,11 @@ import Card from '@mui/material/Card'
 import { useEffect, useState } from 'react'
 import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
+import FormControl from '@mui/material/FormControl'
+import InputLabel from '@mui/material/InputLabel'
+import Select from '@mui/material/Select'
+import MenuItem from '@mui/material/MenuItem'
+import Chip from '@mui/material/Chip'
 
 function App() {
   const [loaded] = useState(loadNovels)
@@ -9,6 +14,7 @@ function App() {
   const [storageError, setStorageError] = useState(loaded.readError)
   const [title, setTitle] = useState('')
   const [author, setAuthor] = useState('')
+  const [status, setStatus] = useState<ReadingStatus>('未読')
   const [episodeDrafts, setEpisodeDrafts] = useState<Record<number, string>>({})
 
   useEffect(() => {
@@ -35,11 +41,13 @@ function App() {
         title: trimmedTitle,
         author: author.trim() || '作者未入力',
         readEpisode: 0,
+        status,
       },
     ])
 
     setTitle('')
     setAuthor('')
+    setStatus('未読')
   }
 
   function getEpisodeInput(novel: Novel) {
@@ -105,6 +113,23 @@ function App() {
       onChange={(event) => setAuthor(event.target.value)}
     />
 
+    <FormControl fullWidth>
+      <InputLabel id="novel-status-label">読書状態</InputLabel>
+      <Select<ReadingStatus>
+        labelId="novel-status-label"
+        id="novel-status"
+        value={status}
+        label="読書状態"
+        onChange={(event) =>
+          setStatus(event.target.value as ReadingStatus)
+        }
+      >
+        <MenuItem value="未読">未読</MenuItem>
+        <MenuItem value="読書中">読書中</MenuItem>
+        <MenuItem value="読了">読了</MenuItem>
+      </Select>
+    </FormControl>
+
     <Button
       type="submit"
       variant="contained"
@@ -121,6 +146,18 @@ function App() {
         <Card key={novel.id} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
           <h2 className="mb-2 text-lg font-bold">{novel.title}</h2>
           <p className="text-sm text-slate-600">{novel.author}</p>
+          <Chip
+            label={novel.status}
+            size="small"
+            color={
+              novel.status === '読了'
+                ? 'success'
+                : novel.status === '読書中'
+                  ? 'primary'
+                  : 'error'
+            }
+            sx={{ mt: 2 }}
+          />
           <p className="mt-4">{novel.readEpisode}話まで読了</p>
           <div className="mt-3 flex items-start gap-2">
           <TextField
@@ -157,17 +194,38 @@ function App() {
   )
 }
 
+type ReadingStatus = '未読' | '読書中' | '読了'
+
 type Novel = {
   id: number
   title: string
   author: string
   readEpisode: number
+  status: ReadingStatus
 }
 
 const initialNovels: Novel[] = [
-  { id: 1, title: '星降る街の魔法使い', author: '作者A', readEpisode: 12 },
-  { id: 2, title: '異世界の小さな喫茶店', author: '作者B', readEpisode: 5 },
-  { id: 3, title: '最後の竜と旅する日々', author: '作者C', readEpisode: 28 },
+  {
+    id: 1,
+    title: '星降る街の魔法使い',
+    author: '作者A',
+    readEpisode: 12,
+    status: '読書中',
+  },
+  {
+    id: 2,
+    title: '異世界の小さな喫茶店',
+    author: '作者B',
+    readEpisode: 5,
+    status: '読書中',
+  },
+  {
+    id: 3,
+    title: '最後の竜と旅する日々',
+    author: '作者C',
+    readEpisode: 28,
+    status: '読書中',
+  },
 ]
 
 const STORAGE_KEY = 'mui-practice:novels'
@@ -192,13 +250,26 @@ function loadNovels(): { novels: Novel[]; readError: string } {
           typeof item.title === 'string' &&
           typeof item.author === 'string' &&
           Number.isSafeInteger(item.readEpisode) &&
-          item.readEpisode >= 0,
+          item.readEpisode >= 0 &&
+          (
+            item.status === undefined ||
+            item.status === '未読' ||
+            item.status === '読書中' ||
+            item.status === '読了'
+          ),
       )
     ) {
       throw new Error('Invalid saved data')
     }
 
-    return { novels: data as Novel[], readError: '' }
+    const restoredNovels: Novel[] = data.map((item) => ({
+      ...item,
+      status:
+        item.status ??
+        (item.readEpisode > 0 ? '読書中' : '未読'),
+    }))
+
+    return { novels: restoredNovels, readError: '' }
   } catch {
     return {
       novels: initialNovels,
