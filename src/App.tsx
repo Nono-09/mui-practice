@@ -1,13 +1,28 @@
 import Card from '@mui/material/Card'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
 
 function App() {
-  const [novels, setNovels] = useState<Novel[]>(initialNovels)
+  const [loaded] = useState(loadNovels)
+  const [novels, setNovels] = useState<Novel[]>(loaded.novels)
+  const [storageError, setStorageError] = useState(loaded.readError)
   const [title, setTitle] = useState('')
   const [author, setAuthor] = useState('')
   const [episodeDrafts, setEpisodeDrafts] = useState<Record<number, string>>({})
+
+  useEffect(() => {
+    if (loaded.readError) return
+
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(novels))
+      setStorageError('')
+    } catch {
+      setStorageError(
+        '保存できませんでした。再読み込みすると今回の変更が失われます。',
+      )
+    }
+  }, [novels, loaded.readError])
 
   function addNovel() {
     const trimmedTitle = title.trim()
@@ -59,6 +74,12 @@ function App() {
   return (
     <div className="min-h-screen bg-slate-100 p-6 font-sans text-slate-900">
     <h1 className="mb-6 text-2xl font-bold">Web小説の読書管理</h1>
+
+    {storageError && (
+      <p role="alert" className="mb-4 rounded-lg bg-red-100 p-3 text-red-800">
+        {storageError}
+      </p>
+    )}
 
     <form
     className="mb-6 flex flex-col gap-4 rounded-xl bg-white p-4"
@@ -148,5 +169,43 @@ const initialNovels: Novel[] = [
   { id: 2, title: '異世界の小さな喫茶店', author: '作者B', readEpisode: 5 },
   { id: 3, title: '最後の竜と旅する日々', author: '作者C', readEpisode: 28 },
 ]
+
+const STORAGE_KEY = 'mui-practice:novels'
+
+function loadNovels(): { novels: Novel[]; readError: string } {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+
+    if (saved === null) {
+      return { novels: initialNovels, readError: '' }
+    }
+
+    const data: unknown = JSON.parse(saved)
+
+    if (
+      !Array.isArray(data) ||
+      !data.every(
+        (item) =>
+          item !== null &&
+          typeof item === 'object' &&
+          Number.isSafeInteger(item.id) &&
+          typeof item.title === 'string' &&
+          typeof item.author === 'string' &&
+          Number.isSafeInteger(item.readEpisode) &&
+          item.readEpisode >= 0,
+      )
+    ) {
+      throw new Error('Invalid saved data')
+    }
+
+    return { novels: data as Novel[], readError: '' }
+  } catch {
+    return {
+      novels: initialNovels,
+      readError:
+        '保存データを読み込めませんでした。上書きを防ぐため、自動保存を停止しています。',
+    }
+  }
+}
 
 export default App
