@@ -7,6 +7,7 @@ import InputLabel from '@mui/material/InputLabel'
 import Select from '@mui/material/Select'
 import MenuItem from '@mui/material/MenuItem'
 import Chip from '@mui/material/Chip'
+import Link from '@mui/material/Link'
 
 function App() {
   const [loaded] = useState(loadNovels)
@@ -14,6 +15,7 @@ function App() {
   const [storageError, setStorageError] = useState(loaded.readError)
   const [title, setTitle] = useState('')
   const [author, setAuthor] = useState('')
+  const [url, setUrl] = useState('')
   const [status, setStatus] = useState<ReadingStatus>('未読')
   const [episodeDrafts, setEpisodeDrafts] = useState<Record<number, string>>({})
 
@@ -32,7 +34,10 @@ function App() {
 
   function addNovel() {
     const trimmedTitle = title.trim()
+    const trimmedUrl = url.trim()
+
     if (!trimmedTitle) return
+    if (trimmedUrl && !isValidNovelUrl(trimmedUrl)) return
 
     setNovels((current) => [
       ...current,
@@ -42,11 +47,13 @@ function App() {
         author: author.trim() || '作者未入力',
         readEpisode: 0,
         status,
+        url: trimmedUrl,
       },
     ])
 
     setTitle('')
     setAuthor('')
+    setUrl('')
     setStatus('未読')
   }
 
@@ -113,6 +120,17 @@ function App() {
       onChange={(event) => setAuthor(event.target.value)}
     />
 
+    <TextField
+      id="novel-url"
+      label="作品URL（任意）"
+      fullWidth
+      value={url}
+      onChange={(event) => setUrl(event.target.value)}
+      error={url.trim() !== '' && !isValidNovelUrl(url.trim())}
+      helperText="https:// または http:// で始まるURL"
+      slotProps={{ htmlInput: { inputMode: 'url' } }}
+    />
+
     <FormControl fullWidth>
       <InputLabel id="novel-status-label">読書状態</InputLabel>
       <Select<ReadingStatus>
@@ -135,7 +153,10 @@ function App() {
       variant="contained"
       size="large"
       fullWidth
-      disabled={!title.trim()}
+      disabled={
+        !title.trim() ||
+        (url.trim() !== '' && !isValidNovelUrl(url.trim()))
+      }
     >
       登録する
     </Button>
@@ -146,6 +167,17 @@ function App() {
         <Card key={novel.id} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
           <h2 className="mb-2 text-lg font-bold">{novel.title}</h2>
           <p className="text-sm text-slate-600">{novel.author}</p>
+          {novel.url && (
+            <Link
+              href={novel.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`${novel.title}を読む（新しいタブで開く）`}
+              sx={{ display: 'block', mt: 1 }}
+            >
+              作品を読む ↗
+            </Link>
+          )}
           <Chip
             label={novel.status}
             size="small"
@@ -202,6 +234,7 @@ type Novel = {
   author: string
   readEpisode: number
   status: ReadingStatus
+  url: string
 }
 
 const initialNovels: Novel[] = [
@@ -211,6 +244,7 @@ const initialNovels: Novel[] = [
     author: '作者A',
     readEpisode: 12,
     status: '読書中',
+    url: '',
   },
   {
     id: 2,
@@ -218,6 +252,7 @@ const initialNovels: Novel[] = [
     author: '作者B',
     readEpisode: 5,
     status: '読書中',
+    url: '',
   },
   {
     id: 3,
@@ -225,8 +260,18 @@ const initialNovels: Novel[] = [
     author: '作者C',
     readEpisode: 28,
     status: '読書中',
+    url: '', 
   },
 ]
+
+function isValidNovelUrl(value: string) {
+  try {
+    const parsed = new URL(value)
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:'
+  } catch {
+    return false
+  }
+}
 
 const STORAGE_KEY = 'mui-practice:novels'
 
@@ -249,6 +294,13 @@ function loadNovels(): { novels: Novel[]; readError: string } {
           Number.isSafeInteger(item.id) &&
           typeof item.title === 'string' &&
           typeof item.author === 'string' &&
+          (
+            item.url === undefined ||
+            (
+              typeof item.url === 'string' &&
+              (item.url === '' || isValidNovelUrl(item.url))
+            )
+          ) &&
           Number.isSafeInteger(item.readEpisode) &&
           item.readEpisode >= 0 &&
           (
@@ -264,6 +316,7 @@ function loadNovels(): { novels: Novel[]; readError: string } {
 
     const restoredNovels: Novel[] = data.map((item) => ({
       ...item,
+      url: item.url ?? '',
       status:
         item.status ??
         (item.readEpisode > 0 ? '読書中' : '未読'),
