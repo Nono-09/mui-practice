@@ -8,6 +8,7 @@ import Select from '@mui/material/Select'
 import MenuItem from '@mui/material/MenuItem'
 import Chip from '@mui/material/Chip'
 import Link from '@mui/material/Link'
+import Rating from '@mui/material/Rating'
 
 function App() {
   const [loaded] = useState(loadNovels)
@@ -48,6 +49,7 @@ function App() {
         readEpisode: 0,
         status,
         url: trimmedUrl,
+        rating: null,
       },
     ])
 
@@ -190,6 +192,29 @@ function App() {
             }
             sx={{ mt: 2 }}
           />
+          <div className="mt-4">
+            <p
+              id={`rating-label-${novel.id}`}
+              className="mb-1 text-sm text-slate-600"
+            >
+              自分の評価：{novel.rating === null ? '未評価' : `${novel.rating} / 5`}
+            </p>
+            <Rating
+              name={`rating-${novel.id}`}
+              aria-labelledby={`rating-label-${novel.id}`}
+              value={novel.rating}
+              getLabelText={(value) => `${value}つ星`}
+              onChange={(_, newValue) => {
+                setNovels((current) =>
+                  current.map((item) =>
+                    item.id === novel.id
+                      ? { ...item, rating: newValue }
+                      : item,
+                  ),
+                )
+              }}
+            />
+          </div>
           <p className="mt-4">{novel.readEpisode}話まで読了</p>
           <div className="mt-3 flex items-start gap-2">
           <TextField
@@ -235,6 +260,7 @@ type Novel = {
   readEpisode: number
   status: ReadingStatus
   url: string
+  rating: number | null
 }
 
 const initialNovels: Novel[] = [
@@ -245,6 +271,7 @@ const initialNovels: Novel[] = [
     readEpisode: 12,
     status: '読書中',
     url: '',
+    rating: null,
   },
   {
     id: 2,
@@ -253,6 +280,7 @@ const initialNovels: Novel[] = [
     readEpisode: 5,
     status: '読書中',
     url: '',
+    rating: null,
   },
   {
     id: 3,
@@ -261,6 +289,7 @@ const initialNovels: Novel[] = [
     readEpisode: 28,
     status: '読書中',
     url: '', 
+    rating: null,
   },
 ]
 
@@ -295,6 +324,15 @@ function loadNovels(): { novels: Novel[]; readError: string } {
           typeof item.title === 'string' &&
           typeof item.author === 'string' &&
           (
+            item.rating === undefined ||
+            item.rating === null ||
+            (
+              Number.isInteger(item.rating) &&
+              item.rating >= 1 &&
+              item.rating <= 5
+            )
+          ) &&
+          (
             item.url === undefined ||
             (
               typeof item.url === 'string' &&
@@ -317,6 +355,7 @@ function loadNovels(): { novels: Novel[]; readError: string } {
     const restoredNovels: Novel[] = data.map((item) => ({
       ...item,
       url: item.url ?? '',
+      rating: item.rating ?? null,
       status:
         item.status ??
         (item.readEpisode > 0 ? '読書中' : '未読'),
